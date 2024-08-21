@@ -1,4 +1,4 @@
-package org.oracle.okafka.tests;
+package tests;
 
 import org.junit.BeforeClass;
 import org.junit.Test;

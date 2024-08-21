@@ -1,4 +1,4 @@
-package org.oracle.okafka.tests;
+package tests;
 
 import org.junit.Test;
 import org.oracle.okafka.clients.producer.KafkaProducer;

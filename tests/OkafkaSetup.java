@@ -1,4 +1,4 @@
-package org.oracle.okafka.tests;
+package tests;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -13,7 +13,7 @@ public class OkafkaSetup {
 	  final Properties BaseProperties = new Properties();
 	  InputStream input;
     	  try {
-    		  input = new FileInputStream("src/test/java/test.config");
+    		  input = new FileInputStream("config.properties");
               BaseProperties.load(input);
 	        } catch (Exception e) {
 	        	System.out.println("Exception whlie loading config.properties file. " + e);
@@ -21,4 +21,6 @@ public class OkafkaSetup {
 	        }
 	  return BaseProperties;
     }
+    
+    
 }

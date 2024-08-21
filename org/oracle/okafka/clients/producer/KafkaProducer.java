@@ -1,11 +1,4 @@
 /*
- ** OKafka Java Client version 23.4.
- **
- ** Copyright (c) 2019, 2024 Oracle and/or its affiliates.
- ** Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
- */
-
-/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -103,7 +96,11 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -114,142 +111,99 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * An OKafka client that publishes records to the Oracle's Transactional Event
- * Queue (TxEQ) messaging broker.
+ * An OKafka client that publishes records to the Oracle's Transactional Event Queue (TxEQ) messaging broker.
  * <P>
  * The producer is <i>thread safe</i>.
  * <p>
- * Here is a simple example of using the producer to send records with strings
- * containing sequential numbers as the key/value pairs.
- * 
+ * Here is a simple example of using the producer to send records with strings containing sequential numbers as the key/value
+ * pairs.
  * <pre>
  * {@code
  * Properties props = new Properties();
  * props.put("bootstrap.servers", "localhost:1521");
  * props.put("oracle.service.name", "freepdb1");
- * props.put("oracle.net.tns_admin", ".");
+ * props.put("oracle.net.tns_admin",".");
  * props.put("linger.ms", 1);
  * props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
  * props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
  *
  * Producer<String, String> producer = new KafkaProducer<>(props);
  * for (int i = 0; i < 100; i++)
- * 	producer.send(new ProducerRecord<String, String>("my-topic", Integer.toString(i), Integer.toString(i)));
+ *     producer.send(new ProducerRecord<String, String>("my-topic", Integer.toString(i), Integer.toString(i)));
  *
  * producer.close();
  * }</pre>
  * <p>
- * This producer connects to Oracle database instance running on local host on
- * port 1521. This is specified by property <code>bootstrap.servers</code> It
- * connects to service named 'freepdb1' specified using property
- * <code>oracle.service.name</code> It reads authentication and other JDBC
- * driver parameters to connect to Oracle database from the directory specified
- * via property <code>oracle.net.tns_admin</code>
+ * This producer connects to Oracle database instance running on local host on port 1521. This is specified by property <code>bootstrap.servers</code> 
+ * It connects to service named 'freepdb1' specified using property <code>oracle.service.name</code>
+ * It reads authentication and other JDBC driver parameters to connect to Oracle database from the directory specified via property <code>oracle.net.tns_admin</code>
  * </p>
  * <p>
- * The producer consists of a pool of buffer space that holds records that
- * haven't yet been transmitted to the server as well as a background I/O thread
- * that is responsible for turning these records into requests and transmitting
- * them to the Oracle database. Failure to close the producer after use will
- * leak these resources.
+ * The producer consists of a pool of buffer space that holds records that haven't yet been transmitted to the server
+ * as well as a background I/O thread that is responsible for turning these records into requests and transmitting them
+ * to the Oracle database. Failure to close the producer after use will leak these resources.
  * <p>
- * The {@link #send(ProducerRecord) send()} method is asynchronous. When called
- * it adds the record to a buffer of pending record sends and immediately
- * returns. This allows the producer to batch together individual records for
- * efficiency.
+ * The {@link #send(ProducerRecord) send()} method is asynchronous. When called it adds the record to a buffer of pending record sends
+ * and immediately returns. This allows the producer to batch together individual records for efficiency.
  * <p>
- * If the request fails, the producer can automatically retry. The
- * <code>retries</code> setting defaults to <code>Integer.MAX_VALUE</code>.
+ * If the request fails, the producer can automatically retry. The <code>retries</code> setting defaults to <code>Integer.MAX_VALUE</code>.
  * <p>
- * The producer maintains buffers of unsent records for each partition. These
- * buffers are of a size specified by the <code>batch.size</code> config. Making
- * this larger can result in more batching, but requires more memory (since we
- * will generally have one of these buffers for each active partition).
+ * The producer maintains buffers of unsent records for each partition. These buffers are of a size specified by
+ * the <code>batch.size</code> config. Making this larger can result in more batching, but requires more memory (since we will
+ * generally have one of these buffers for each active partition).
  * <p>
- * By default a buffer is available to send immediately even if there is
- * additional unused space in the buffer. However if you want to reduce the
- * number of requests you can set <code>linger.ms</code> to something greater
- * than 0. This will instruct the producer to wait up to that number of
- * milliseconds before sending a request in hope that more records will arrive
- * to fill up the same batch. This is analogous to Nagle's algorithm in TCP. For
- * example, in the code snippet above, likely all 100 records would be sent in a
- * single request since we set our linger time to 1 millisecond. However this
- * setting would add 1 millisecond of latency to our request waiting for more
- * records to arrive if we didn't fill up the buffer. Note that records that
- * arrive close together in time will generally batch together even with
- * <code>linger.ms=0</code> so under heavy load batching will occur regardless
- * of the linger configuration; however setting this to something larger than 0
- * can lead to fewer, more efficient requests when not under maximal load at the
- * cost of a small amount of latency.
+ * By default a buffer is available to send immediately even if there is additional unused space in the buffer. However if you
+ * want to reduce the number of requests you can set <code>linger.ms</code> to something greater than 0. This will
+ * instruct the producer to wait up to that number of milliseconds before sending a request in hope that more records will
+ * arrive to fill up the same batch. This is analogous to Nagle's algorithm in TCP. For example, in the code snippet above,
+ * likely all 100 records would be sent in a single request since we set our linger time to 1 millisecond. However this setting
+ * would add 1 millisecond of latency to our request waiting for more records to arrive if we didn't fill up the buffer. Note that
+ * records that arrive close together in time will generally batch together even with <code>linger.ms=0</code> so under heavy load
+ * batching will occur regardless of the linger configuration; however setting this to something larger than 0 can lead to fewer, more
+ * efficient requests when not under maximal load at the cost of a small amount of latency.
  * <p>
- * The <code>buffer.memory</code> controls the total amount of memory available
- * to the producer for buffering. If records are sent faster than they can be
- * transmitted to the server then this buffer space will be exhausted. When the
- * buffer space is exhausted additional send calls will block. The threshold for
- * time to block is determined by <code>max.block.ms</code> after which it
- * throws a TimeoutException.
+ * The <code>buffer.memory</code> controls the total amount of memory available to the producer for buffering. If records
+ * are sent faster than they can be transmitted to the server then this buffer space will be exhausted. When the buffer space is
+ * exhausted additional send calls will block. The threshold for time to block is determined by <code>max.block.ms</code> after which it throws
+ * a TimeoutException.
  * <p>
- * The <code>key.serializer</code> and <code>value.serializer</code> instruct
- * how to turn the key and value objects the user provides with their
- * <code>ProducerRecord</code> into bytes. You can use the included
- * {@link org.apache.kafka.common.serialization.ByteArraySerializer} or
- * {@link org.apache.kafka.common.serialization.StringSerializer} for simple
- * string or byte types.
+ * The <code>key.serializer</code> and <code>value.serializer</code> instruct how to turn the key and value objects the user provides with
+ * their <code>ProducerRecord</code> into bytes. You can use the included {@link org.apache.kafka.common.serialization.ByteArraySerializer} or
+ * {@link org.apache.kafka.common.serialization.StringSerializer} for simple string or byte types.
  * <p>
- * From OKafka 23.4, the KafkaProducer supports two additional modes: the
- * idempotent producer and the transactional producer. The idempotent producer
- * strengthens OKafka's delivery semantics from at least once to exactly once
- * delivery. In particular producer retries will no longer introduce duplicates.
- * The transactional producer allows an application to send messages to multiple
- * partitions (and topics!) atomically.
+ * From OKafka 23.4, the KafkaProducer supports two additional modes: the idempotent producer and the transactional producer.
+ * The idempotent producer strengthens OKafka's delivery semantics from at least once to exactly once delivery. In particular
+ * producer retries will no longer introduce duplicates. The transactional producer allows an application to send messages
+ * to multiple partitions (and topics!) atomically.
  * </p>
  * <p>
- * To enable idempotence, the <code>enable.idempotence</code> configuration must
- * be set to true. If set, the <code>retries</code> config will default to
- * <code>Integer.MAX_VALUE</code>. There are no API changes for the idempotent
- * producer, so existing applications will not need to be modified to take
- * advantage of this feature.
+ * To enable idempotence, the <code>enable.idempotence</code> configuration must be set to true. If set, the
+ * <code>retries</code> config will default to <code>Integer.MAX_VALUE</code>. There are no API changes for the idempotent producer, so existing applications will
+ * not need to be modified to take advantage of this feature.
  * </p>
  * <p>
- * To take advantage of the idempotent producer, it is imperative to avoid
- * application level re-sends since these cannot be de-duplicated. As such, if
- * an application enables idempotence, it is recommended to leave the
- * <code>retries</code> config unset, as it will be defaulted to
- * <code>Integer.MAX_VALUE</code>. Additionally, if a
- * {@link #send(ProducerRecord)} returns an error even with infinite retries
- * (for instance if the message expires in the buffer before being sent), then
- * it is recommended to shut down the producer and check the contents of the
- * last produced message to ensure that it is not duplicated. Finally, the
- * producer can only guarantee idempotence for messages sent within a single
- * session.
+ * To take advantage of the idempotent producer, it is imperative to avoid application level re-sends since these cannot
+ * be de-duplicated. As such, if an application enables idempotence, it is recommended to leave the <code>retries</code>
+ * config unset, as it will be defaulted to <code>Integer.MAX_VALUE</code>. Additionally, if a {@link #send(ProducerRecord)}
+ * returns an error even with infinite retries (for instance if the message expires in the buffer before being sent),
+ * then it is recommended to shut down the producer and check the contents of the last produced message to ensure that
+ * it is not duplicated. Finally, the producer can only guarantee idempotence for messages sent within a single session.
  * </p>
- * <p>
- * To use the transactional producer and the attendant APIs, application must
- * set the <code>oracle.transactional.producer</code> configuration property to
- * <code>true</code>. The transactional producer is not <i>thread safe</i>.
- * Application should manage the concurrent access of the transactional
- * producer. Transactional producer does not get benefit of batching. Each
- * message is sent to Oracle Transactional Event Queue broker in a separate
- * request.
+ * <p>To use the transactional producer and the attendant APIs, application must set the <code>oracle.transactional.producer</code>
+ * configuration property to <code>true</code>. The transactional producer is not <i>thread safe</i>. Application should manage
+ * the concurrent access of the transactional producer. Transactional producer does not get benefit of batching. Each message
+ * is sent to Oracle Transactional Event Queue broker in a separate request.  
  * </p>
- * <p>
- * Transactional producer can use {@link #getDBConnection()} to fetch the
- * database connection which is being used to send the records to the Oracle's
- * Transactional Event Queue broker. {@link #commitTransaction()} will
- * atomically commit the DML operation(s) and send operation(s) performed within
- * the current transaction. {@link #abortTransaction()} will atomically
- * roll-back the DML operation and abort the producer records sent within the
- * current transaction.
+ * <p> Transactional producer can use {@link #getDBConnection()} to fetch the database connection which is being
+ * used to send the records to the Oracle's Transactional Event Queue broker. {@link #commitTransaction()} will atomically commit the DML operation(s) and send operation(s) performed within the current transaction.  
+ * {@link #abortTransaction()} will atomically roll-back the DML operation and abort the producer records sent within the current transaction. 
  * 
  * </p>
- * <p>
- * All the new transactional APIs are blocking and will throw exceptions on
- * failure. The example below illustrates how the new APIs are meant to be used.
- * It is similar to the example above, except that all 100 messages are part of
- * a single transaction.
+ * <p>All the new transactional APIs are blocking and will throw exceptions on failure. The example
+ * below illustrates how the new APIs are meant to be used. It is similar to the example above, except that all
+ * 100 messages are part of a single transaction.
  * </p>
- * <p>
- * 
+
  * <pre>
  * {@code
  * Properties props = new Properties();
@@ -280,107 +234,96 @@ import java.util.concurrent.atomic.AtomicReference;
  * }
  * producer.close();
  * } </pre>
- * </p>
+
  * <p>
- * As is hinted at in the example, there can be only one open transaction per
- * producer. All messages sent between the {@link #beginTransaction()} and
- * {@link #commitTransaction()} calls will be part of a single transaction. When
- * the <code>transactional.id</code> is specified, all messages sent by the
- * producer must be part of a transaction.
+ * As is hinted at in the example, there can be only one open transaction per producer. All messages sent between the
+ * {@link #beginTransaction()} and {@link #commitTransaction()} calls will be part of a single transaction. When the
+ * <code>transactional.id</code> is specified, all messages sent by the producer must be part of a transaction.
  * </p>
+
  * <p>
- * The transactional producer uses exceptions to communicate error states. In
- * particular, it is not required to specify callbacks for
- * <code>producer.send()</code> or to call <code>.get()</code> on the returned
- * Future. A <code>KafkaException</code> would be thrown if any of the
- * <code>producer.send()</code> or transactional calls hit an recoverable error
- * during a transaction. A <code>DisconnectException</code> would be thrown if
- * <code> producer.commitTransaction()</code> call hit an irrecoverable error
- * during commit. At this point producer cannot confirm if the operations
- * performed within this transaction were successfully committed or not. See the
- * {@link #send(ProducerRecord)} documentation for more details about detecting
- * errors from a transactional send.
+ * The transactional producer uses exceptions to communicate error states. In particular, it is not required
+ * to specify callbacks for <code>producer.send()</code> or to call <code>.get()</code> on the returned Future. 
+ * A <code>KafkaException</code> would be thrown if any of the <code>producer.send()</code> or transactional calls hit an recoverable error during a transaction. 
+ * A <code>DisconnectException</code> would be thrown if <code> producer.commitTransaction()</code> call hit an irrecoverable error during commit. At this point producer cannot
+ * confirm if the operations performed within this transaction were successfully committed or not. 
+ * See the {@link #send(ProducerRecord)}
+ * documentation for more details about detecting errors from a transactional send. 
  * </p>
  * 
- * <p>
- * By calling <code>producer.abortTransaction()</code> upon receiving a
- * <code>KafkaException</code> we can ensure that any successful writes are
- * marked as aborted, hence keeping the transactional guarantees.
+ * <p>By calling <code>producer.abortTransaction()</code> upon receiving a <code>KafkaException</code> we can ensure that any
+ * successful writes are marked as aborted, hence keeping the transactional guarantees.
  * </p>
  * <p>
- * OKafka Transactional Producer can also be created by passing a pre-created
- * Oracle database connection through
- * {@link #KafkaProducer(Properties, Connection)} or similar overloaded
- * constructors. Application must set the
- * <code>oracle.transactional.producer</code> property to true here as well.
- * Transactional producer created this way can be used for
- * 'consume-transform-produce' workflow. Below example depicts that. Here a
- * consumer is created. A database connection is retrieved from the
- * KafkaConsumer and passed to create a KafkaProducer. Consumer consumes records
- * from "my-topic1". While processing the records, a transaction is started and
- * within this transaction processed records are send to topic "my-topic2". When
- * KafkaProducer commits the transaction both the consumed and produced records
- * are committed. When KafkaProducer aborts the transaction, all consumed and
- * produced records are rolled-back. Since producer and consumer are using the
- * same database connection all their operations are either committed or aborted
- * atomically.
+ * OKafka Transactional Producer can also be created by passing a pre-created Oracle database connection through {@link #KafkaProducer(Properties, Connection)} or similar overloaded constructors.
+ * Application must set the <code>oracle.transactional.producer</code> property to true here as well. 
+ * Transactional producer created this way can be used for 'consume-transform-produce' workflow. Below example depicts that.
+ * Here a consumer is created. A database connection is retrieved from the KafkaConsumer and
+ * passed to create a KafkaProducer.
+ * Consumer consumes records from "my-topic1". While processing the records, a transaction is started and within this transaction processed records are send to topic "my-topic2". 
+ * When KafkaProducer commits the transaction both the consumed and produced records are committed.
+ * When KafkaProducer aborts the transaction, all consumed and produced records are rolled-back.
+ * Since producer and consumer are using the same database connection all their operations are either committed or aborted atomically.
  * </p>
- * <p>
- * 
+
  * <pre>
  * {@code
  * Properties commonProps = new Properties();
  * Properties cProps = new Properties();
- * Properties pProps = new Properties();
+ * Properties pProps =new Properties();
  *
  * commonProps.put("bootstrap.servers", "localhost:1521");
  * commonProps.put("oracle.service.name", "freepdb1");
- * commonProps.put("oracle.net.tns_admin", ".");
+ * commonProps.put("oracle.net.tns_admin",".");
  * 
  * //Create Consumer 
- * cProps.putAll(commonProps);
- * cProps.put("group.id", "S1");
- * cProps.put("enable.auto.commit", "false");
- * Consumer<String, String> consumer = null;
+ * cProps.putAll(commonProps); 
+ * cProps.put("group.id" , "S1");
+ * cProps.put("enable.auto.commit","false");
+ * Consumer<String , String> consumer = null;
  * Producer<String, String> producer = null;
  * 
  * try {
  * 	consumer = new KafkaConsumer<String, String>(cProps);
  * 	consumer.subscribe(Arrays.asList("my-topic1"));
- * 	Connection conn = ((KafkaConsumer<String, String>) consumer).getDBConnection();
- * 	// Create Producer
+ *  Connection conn = ((KafkaConsumer<String, String>)consumer).getDBConnection();
+ * 	//Create Producer
  * 	pProps.put("oracle.transactional.producer", "true");
- * 	producer = new KafkaProducer<String, String>(pProps, conn);
+ * 	producer = new KafkaProducer<String,String>(pProps, conn);
  * 
- * 	while (true) {
- * 		ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(10000));
- * 		if (records != null && records.count() > 0) {
- * 			producer.beginTransaction();
- * 			try {
- * 				for (ConsumerRecord<String, String> consumerRecord : records) {
- * 					ProducerRecord<String, String> pRecord = transform(consumerRecord, "my-topic2");
- * 					porducer.send(pRecord);
- * 				}
- * 				// Commit all consumed and produced records
- * 				producer.commitTransaction();
- * 			} catch (DisconnectException dcE) {
- * 				producer.close();
- * 				throw dcE;
- * 			} catch (KafkaException e) {
- * 				// Re-process all the consumed record
- * 				producer.abortTransaction();
- * 			}
- * 		}
- * 	}
- * } finally {
- * 	producer.close();
- * 	consumer.close();
+ *  while(true)
+ *  {
+ *    ConsumerRecords <String, String> records = consumer.poll(Duration.ofMillis(10000));
+ *    if(records != null && records.count() > 0) {
+ *      producer.beginTransaction();
+ *      try {
+ *        for (ConsumerRecord<String, String> consumerRecord : records)	
+		  {
+ *          ProducerRecord<String,String> pRecord = transform(consumerRecord, "my-topic2");
+ *          porducer.send(pRecord);
+ *        }
+ *        // Commit all consumed and produced records
+ *        producer.commitTransaction();
+ *      }
+ *      catch(DisconnectException dcE) {
+ *        producer.close();
+ *        throw dcE;
+ *      }
+ *      catch(KafkaException e) {
+ *        //Re-process all the consumed record
+ *        producer.abortTransaction();
+ *      }
+ *    } 
+ *  }
+ * }finally {
+ *    producer.close();
+ *    consumer.close();
  * }
- * }
+ *}
  * </pre>
- * </p>
  * 
- */
+ *  */
+
 public class KafkaProducer<K, V> implements Producer<K, V> {
 
 	private final Logger log;

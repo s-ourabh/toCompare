@@ -1,4 +1,4 @@
-package org.oracle.okafka.tests;
+package tests;
 
 import java.io.IOException;
 import java.time.Duration;

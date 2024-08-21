@@ -1,4 +1,4 @@
-package org.oracle.okafka.tests;
+package tests;
 
 import java.io.File;
 import java.io.FileWriter;
