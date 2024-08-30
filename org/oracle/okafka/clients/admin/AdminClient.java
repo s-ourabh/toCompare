@@ -1,7 +1,7 @@
 /*
 ** OKafka Java Client version 23.4.
 **
-** Copyright (c) 2019, 2020 Oracle and/or its affiliates.
+** Copyright (c) 2019, 2024 Oracle and/or its affiliates.
 ** Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 */
 
@@ -215,6 +215,7 @@ public abstract class AdminClient  implements Admin {
     public abstract DeleteTopicsResult deleteTopics(Collection<String> topics, DeleteTopicsOptions options);
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public ListTopicsResult listTopics() {
@@ -222,11 +223,13 @@ public abstract class AdminClient  implements Admin {
     }
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public abstract ListTopicsResult listTopics(ListTopicsOptions options);
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public DescribeTopicsResult describeTopics(Collection<String> topicNames) {
@@ -234,12 +237,14 @@ public abstract class AdminClient  implements Admin {
     }
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public abstract DescribeTopicsResult describeTopics(Collection<String> topicNames,
                                                          DescribeTopicsOptions options);
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public DescribeClusterResult describeCluster() {
@@ -247,11 +252,13 @@ public abstract class AdminClient  implements Admin {
     }
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public abstract DescribeClusterResult describeCluster(DescribeClusterOptions options);
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public DescribeAclsResult describeAcls(AclBindingFilter filter) {
@@ -259,11 +266,13 @@ public abstract class AdminClient  implements Admin {
     }
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public abstract DescribeAclsResult describeAcls(AclBindingFilter filter, DescribeAclsOptions options);
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public CreateAclsResult createAcls(Collection<AclBinding> acls) {
@@ -402,12 +411,14 @@ public abstract class AdminClient  implements Admin {
 
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public abstract CreateDelegationTokenResult createDelegationToken(CreateDelegationTokenOptions options);
 
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public RenewDelegationTokenResult renewDelegationToken(byte[] hmac) {
@@ -415,12 +426,14 @@ public abstract class AdminClient  implements Admin {
     }
 
     /**
+     * @hidden
      * This method is not yet supported.
      */
     public abstract RenewDelegationTokenResult renewDelegationToken(byte[] hmac, RenewDelegationTokenOptions options);
 
     /**
-     * This method is not yet supported.
+     * @hidden
+     * <This method is not yet supported.
      */
     public ExpireDelegationTokenResult expireDelegationToken(byte[] hmac) {
         return expireDelegationToken(hmac, new ExpireDelegationTokenOptions());

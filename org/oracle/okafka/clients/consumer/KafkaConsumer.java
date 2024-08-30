@@ -75,19 +75,15 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.clients.consumer.OffsetResetStrategy;
-//import org.oracle.okafka.clients.ClientUtils;
 import org.oracle.okafka.clients.CommonClientConfigs;
 import org.oracle.okafka.clients.Metadata;
 import org.oracle.okafka.clients.NetworkClient;
 import org.apache.kafka.clients.consumer.internals.ConsumerInterceptors;
-//import org.oracle.okafka.clients.consumer.OffsetAndMetadata;
-//import org.oracle.okafka.clients.consumer.internals.ConsumerInterceptors;
 import org.oracle.okafka.clients.consumer.internals.ConsumerNetworkClient;
 import org.oracle.okafka.clients.consumer.internals.FetchMetricsRegistry;
 import org.oracle.okafka.clients.consumer.internals.OkafkaConsumerMetrics;
 import org.oracle.okafka.clients.consumer.internals.NoOpConsumerRebalanceListener;
 
-//import org.apache.kafka.clients.consumer.internals.SubscriptionState;
 import org.oracle.okafka.clients.consumer.internals.SubscriptionState;
 import org.oracle.okafka.clients.consumer.internals.SubscriptionState.FetchPosition;
 import org.apache.kafka.clients.Metadata.LeaderAndEpoch;
@@ -218,27 +214,27 @@ import org.slf4j.Logger;
  *     props.put("oracle.service.name", "freepdb1");
  *     props.put("oracle.net.tns_admin","."); 
  *     props.put("group.id", "CG1");
- *     props.put("enable.auto.commit", "true");
+  *     props.put("enable.auto.commit", "true");
  *     props.put("auto.commit.interval.ms", "10000");
  *     props.put("key.deserializer",  "org.apache.kafka.common.serialization.StringDeserializer");	      
- *     props.put("value.deserializer",    "org.apache.kafka.common.serialization.StringDeserializer");  	    p
+ *     props.put("value.deserializer",    "org.apache.kafka.common.serialization.StringDeserializer");
  *     props.put("max.poll.records", 100);
  *     KafkaConsumer<String, String> consumer = null;
  *	   consumer = new KafkaConsumer<String, String>(props);
  *     consumer.subscribe(Arrays.asList("TXEQ"));
  *     ConsumerRecords<String, String> records = null; 
  *     try {
- *		   records = consumer.poll(Duration.ofMillis(1000));
- *	 	   for (ConsumerRecord<String, String> record : records) {		 	  	   
- *                   System.out.println("topic = , partition=  ,key= , value = \n"+ 		 	  	             
- *                                 record.topic()+ "  "+record.partition()+ "  "+record.key()+"  "+ record.value());                  
- * 	 	    }
- *	 	   consumer.commitSync();		 	  	    	 
- *	     }catch(Exception ex) {
- *	    	 ex.printStackTrace(); 
- *       } finally {
- *	    	 consumer.close();
- *	     } 
+ *       records = consumer.poll(Duration.ofMillis(1000));
+ *       for (ConsumerRecord<String, String> record : records) {
+ *         System.out.println("topic = , partition=  ,key= , value = \n"+ 		 	  	             
+ *           record.topic()+ "  "+record.partition()+ "  "+record.key()+"  "+ record.value());                  
+ *       }
+ *       consumer.commitSync();		 	  	    	 
+ *     }catch(Exception ex) {
+ *        ex.printStackTrace(); 
+ *     } finally {
+ *        consumer.close();
+ *     }
  *}
  * </pre>
  *
@@ -715,13 +711,15 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 	}
 
 	/**
-	 * Subscribe to the given list of topics to get dynamically assigned partitions.
-	 * However OKafka 0.8 supports only subscription to single topic and only one
-	 * partition is assigned dynamically to consumer. Consumer fetches messages from
-	 * this partition for its lifetime. If consumer goes down then messages from
-	 * this partition remains unconsumed. Client has to start a new consumer to
-	 * consume from this partition.
-	 * 
+	 * Subscribe to the given list of topics to get partitions assigned dynamically.
+	 * However OKafka 23.4.0.0 supports subscription to only a single topic.
+	 * Partitions are assigned dynamically to consumer based on <i>partition.assignment.strategy</i>. 
+	 * <p>
+	 * This method takes an object of {@link org.apache.kafka.clients.consumer.ConsumerRebalanceListener ConsumerRebalanceListener}.
+	 * Its {@link ConsumerRebalanceListener#onPartitionsAssigned(Collection) onPartitionsAssigned} method will be invoked when
+	 * partitions are assigned to this consumer. Similarly {@link ConsumerRebalanceListener#onPartitionsRevoked(Collection) onPartitionsRevoked}
+	 * will be invoked when partitions are revoked. 
+	 * <p>
 	 * <b> Topic subscriptions are not incremental. This list will replace the
 	 * current assignment (if there is one). </b> .
 	 *
@@ -848,19 +846,18 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 	 * Fetch data for the topic specified using {@link #subscribe(Collection)} APIs.
 	 * It is an error to not have subscribed to any topic before polling for data
 	 * Consumer maintains a single connection/session to any one of the oracle
-	 * database instance. Each consumer(session )in a group is assigned a single
-	 * unique partition of subscribed topic. Hence, Poll fetches data from its
-	 * assigned partition till connection/session exists. If existing connection
-	 * lost and connected to any instance of database then consumer(session) might
-	 * be assigned with new partition of subscribed topic.
+	 * database instances. Each consumer in a consumer group is dynamically assigned partition(s) 
+	 * of subscribed topic. 
 	 * <p>
-	 * On each poll consumer tries to fetch from last consumed message id(offset).
-	 * If consumer goes down without commiting then all consumed messages are rolled
-	 * back. and next consumer instance of same group who got this partition starts
-	 * consuming from last committed msgid or from rolled back point.
+	 * On each poll, consumer consumes messages from the last fetch position(offset).
+	 * If consumer is closed or application crashes without committing the consumed records then
+	 * all uncommitted consumed messages are made available again. Next consumer who consumed from these partitions will start
+	 * consuming records from the last committed offset.
 	 * 
-	 * As of 0.8 okafka, there is no group balancing since each instance sticks with
-	 * its partition.
+	 * This method returns immediately if there are records available. Otherwise, it will await the passed timeout.
+	 * If the timeout expires, an empty record set will be returned. 
+	 * Note that this method may block beyond the timeout in order to complete partition <i>rebalancing</i>.
+	 * @see "Section 'Consumer Groups and Topic Subscriptions' in org.oracle.okafka.clients.consumer.KafkaConsumer documentation to understand 'rebalancing'"
 	 * 
 	 * @param timeout The time, in milliseconds, spent waiting in poll.
 	 * @return map of topic to records since the last fetch for the subscribed list
@@ -1627,8 +1624,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 	 * Tries to close the consumer cleanly. If auto-commit is enabled, this will
 	 * commit the current offsets . Close doen't take timeout into consideration.
 	 *
-	 * @throws org.oracle.okafka.common.KafkaException for any other error during
-	 *                                                 close
+	 * @throws org.apache.kafka.common.KafkaException for any other error during close
 	 */
 	@Override
 	public void close() {

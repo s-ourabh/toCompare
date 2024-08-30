@@ -1,0 +1,92 @@
+repositories {
+	mavenCentral()	
+} 
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+println 'Creating okafka-23.4.0.0.jar'
+
+sourceSets {
+   		main {
+      		java {
+         		srcDir 'src'         		
+         		exclude 'tests/**'
+         		exclude 'test/**'
+      		}
+   		}
+	}
+	
+dependencies {
+     
+      implementation group: 'com.oracle.database.messaging', name: 'aqapi', version: '23.3.0.0'
+	  implementation group: 'com.oracle.database.jdbc', name: 'ojdbc8', version: '23.4.0.24.05'
+      implementation group: 'javax.transaction', name: 'jta', version: '1.1'
+      implementation group: 'javax.jms', name: 'javax.jms-api', version: '2.0'
+      implementation group: 'org.slf4j', name: 'slf4j-api', version: '2.0.0-alpha0'          
+      implementation 'org.apache.kafka:kafka-clients:3.7.1'
+      // Use JUnit test framework
+      implementation group: 'junit', name: 'junit', version: '4.12'
+
+      testImplementation group: 'org.easymock', name: 'easymock', version: '3.6'
+      testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.0-beta.5'
+      testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.5'
+      testImplementation group: 'org.powermock', name: 'powermock-api-easymock', version: '2.0.0-beta.5'
+      
+      implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
+	
+jar {
+      println 'Creating  JAR okafka-23.4.0.0.jar'
+      description 'Generates okafka client jar without dependencies' 
+      archiveBaseName = 'okafka'
+      archiveVersion = '23.4.0.0'
+      manifest {
+        attributes (
+        'Version': '23.4.0.0',
+      	'Build-Time-ISO-8601':new Date().format("yyyy-MM-dd HH:mm:ss")
+      	)
+  	  }
+	}
+	
+tasks.withType(Javadoc) {
+        // disable the crazy super-strict doclint tool in Java 8
+        // noinspection SpellCheckingInspection
+        title ="Oracle Kafka 23.4.0.0 API"
+        options.addStringOption('Xdoclint:none', '-quiet')
+        options.windowTitle = "Oracle Database Transactional Event Queues Java API Reference"
+        options.header = """<b>Oracle&reg; Database Transactional Event Queues Java API Reference<br>23ai</b><br>FF46992-04<br>"""
+        options.bottom = """<center><small>Copyright &copy; 2001, 2024, Oracle and/or its affiliates. All rights reserved.<small></center><p><small><br></small></p>"""
+}
+    
+javadoc {
+        include "org/oracle/okafka/clients/admin/*"
+        include "org/oracle/okafka/clients/consumer/*"
+        include "org/oracle/okafka/clients/producer/*"
+        include "org/oracle/okafka/common/errors/*"
+    }
+
+ task fullJar (type: Jar) {
+        archiveBaseName = 'okafka'
+        archiveClassifier = 'full-23.4.0.0'
+
+        manifest {
+            attributes( 'Implementation-Title'  : 'okafka',
+                        'Implementation-Version': project.version)
+        }
+
+        from "${rootProject.projectDir}/LICENSE.txt"
+        from "${rootProject.projectDir}/NOTICE"
+
+        from sourceSets.main.output
+
+        dependsOn configurations.runtimeClasspath
+        from {
+            configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+        }
+
+        duplicatesStrategy 'exclude'
+    }
+
+
+    

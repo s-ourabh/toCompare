@@ -205,19 +205,16 @@ import org.apache.kafka.common.config.ConfigResource;
  * which the client will then connect to as needed.
  * As such, it is sufficient to include only two or three broker addresses to cope with the possibility of brokers
  * being unavailable.
- * </p>
  * <p>
  * Different operations necessitate requests being sent to different nodes in the cluster. For example
  * {@link #createTopics(Collection)} communicates with the controller, but {@link #describeTopics(Collection)}
  * can talk to any broker. When the recipient does not matter the instance will try to use the broker with the
  * fewest outstanding requests.
- * </p>
  * <p>
  * The client will transparently retry certain errors which are usually transient.
  * For example if the request for {@code createTopics()} get sent to a node which was not the controller
  * the metadata would be refreshed and the request re-sent to the controller.
- *</p>
- */
+  */
 @InterfaceStability.Evolving
 public interface Admin extends org.apache.kafka.clients.admin.Admin {
 
